@@ -21,15 +21,7 @@ library(ggplot2)
 require(rpart)
 install.packages('ggplot2', dep = TRUE)
 library(lattice)
-
-
-
-getwd()
-setwd("/Users/Jarinsea/Downloads/OULAD")
-rm (list=ls())
-ls()
-
-list.files()
+library(rpart.plot)
 
 
 ##############################################################################################################################################################
@@ -39,77 +31,70 @@ list.files()
 #### assessmetns ###
 
 Assesments <- read.csv("assessments.csv", stringsAsFactors = FALSE)
-summary(Assesments)
+str(Assesments)
 Assesments$date <- as.integer(Assesments$date)
 Assesments$id_assessment <- as.character(Assesments$id_assessment)
+Assesments$code_module <- as.factor(Assesments$code_module)
+Assesments$code_presentation <- as.factor(Assesments$code_presentation)
 
 #######  courses ####
 
 Courses <- read.csv("courses.csv", stringsAsFactors = FALSE)
-summary(Courses)
-Courses$code_module <- as.factor(ACourses$code_module)
+str(Courses)
+Courses$code_module <- as.factor(Courses$code_module)
 Courses$code_presentation <- as.factor(Courses$code_presentation)
-
-
 
 
 #### student assessment ###
 
 StudentAssessment<-read.csv("studentAssessment.csv", stringsAsFactors = FALSE)
-summary(StudentAssessment)
+str(StudentAssessment)
 StudentAssessment$is_banked <- as.factor(StudentAssessment$is_banked)
-StudentAssessment$score <- as.integer(StudentAssessment$score)
-StudentAssessment$id_assessment <- as.character(StudentAssessment$id_assessment)
+StudentAssessment$score <- as.integer(StudentAssessment$score) 
+  # some student have no scores
+StudentAssessment$id_assessment <-as.character(StudentAssessment$id_assessment)
 StudentAssessment$id_student <- as.character(StudentAssessment$id_student)
 
 
 ### student info ####
 
 StudentInfo <-read.csv("studentInfo.csv", stringsAsFactors = FALSE)
-summary(StudentInfo)
+str(StudentInfo)
 
-StudentInfo$final_result <- as.factor(StudentInfo$final_result)
-StudentInfo$region <- as.factor(StudentInfo$region)
-StudentInfo$highest_education <- as.factor(StudentInfo$highest_education)
-StudentInfo$code_module <- as.factor(StudentInfo$code_module)
-StudentInfo$code_presentation <- as.factor(StudentInfo$code_presentation)
-
-cols<- c(5,7)
+cols<- c(1,2,4,5,6,7,8,11,12)
 
 for(i in cols){
   StudentInfo[, i] = as.factor(StudentInfo[, i])
 }
 
 
-
 #### student reg #####
 
-StudentRegistration <-read.csv("studentRegistration.csv", stringsAsFactors = FALSE)
-
+StudentRegistration <-read.csv("studentRegistration.csv", stringsAsFactors =FALSE)
+str(StudentRegistration)
 cols2<-c(4,5)
 
 for(i in cols2){
   StudentRegistration[, i] = as.integer(StudentRegistration[, i])
 }
+ # missing registration dates
+ 
 StudentRegistration$code_module <- as.factor(StudentRegistration$code_module)
-StudentRegistration$code_presentation <- as.factor(StudentRegistration$code_presentation)
+StudentRegistration$code_presentation<-as.factor(StudentRegistration$code_presentation)
 
 
 #### student Vle ####
 
 StudentVle <-read.csv("studentVle.csv", stringsAsFactors = FALSE)
-
+str(StudentVle)
 StudentVle$code_module<- as.factor(StudentVle$code_module)
-
 StudentVle$code_presentation<- as.factor(StudentVle$code_presentation)
-
-
 
 
 ### virtual learning ###
 
 Vle <-read.csv("vle.csv", stringsAsFactors = FALSE)
-Vle$activity_type <- as.factor(Vle$activity_type)
+str(Vle)
 
 cols3<-c(2,3,4)
 
@@ -117,17 +102,16 @@ for(i in cols3){
   Vle[, i] = as.factor(Vle[, i])
 }
 
-cols4<- c(4,5)
+cols4<- c(5,6)
 for(i in cols4){
   Vle[, i] = as.integer(Vle[, i])
 }
+# missings weeks
 
 
 ######################################################################################################################################################
 # Clean missing or bad values
 ######################################################################################################################################################
-
-## question -- how can we minimize student failing the course? ####
 
 
 ################  Student Assesment ###########################
@@ -145,71 +129,79 @@ StudentAssessment <- StudentAssessment[complete.cases(StudentAssessment),]
 
 ########### Student info ##########################
 
+summary(StudentInfo)
+head(StudentInfo)
+s <-StudentInfo[is.na(StudentInfo),]
+head(s)
+# check for irregular values
+unique(StudentInfo$imd_band) 
+unique(StudentInfo$gender)
+unique(StudentInfo$region)
+unique(StudentInfo$highest_education)
+unique(StudentInfo$age_band)
+unique(StudentInfo$disability)
+unique(StudentInfo$final_result)
 
 StudentInfo$imd_band <- as.character(StudentInfo$imd_band)
 
-unique(StudentInfo$imd_band)
-## Replacing with NA
+# Replacing with NA
 StudentInfo$imd_band[ StudentInfo$imd_band == "?" ] <- NA
-### changing back to factor
+#changing back to factor
 StudentInfo$imd_band <- as.factor(StudentInfo$imd_band)
 
-
-## check for duplicates
-
+# check for duplicates
+nrow(StudentInfo)
 select(StudentInfo,id_student) %>% unique  %>% nrow
 
-## seems to have duplicates 28,785 vs 32,593 records
+# seems to have duplicates 28,785 vs 32,593 records
 
-StudentInfo$id_student[duplicated(StudentInfo$id_student)]
-
+head(StudentInfo[duplicated(StudentInfo$id_student),])
 filter(StudentInfo,id_student==629736)
-# one student can have more than one course so its good
-
-
+# one student can have more than one course, so its good!
 
 
 ############## Registration ##############
 
-filter(StudentRegistration, is.na(date_registration))
+summary(StudentRegistration)
+head(filter(StudentRegistration, is.na(date_registration)))
 
 ## removing students who didn't register, since unregistered students are not assessed for pass / fail
 
 StudentRegistration <- StudentRegistration[complete.cases(StudentRegistration$date_registration),]
 
 
-## one student can have more than one course
-
-
 ############# Student Vle ##############
 
 summary(StudentVle)
-# 10,655,280
-## max sum of 6K click , looks like an outlier
 
-### check what is going on 
+# max sum of 6,977 click , looks like an outlier
+
+# check what is going on 
 filter(StudentVle, sum_click > 1000)
 
 StudentVle %>%filter(id_student==633902) %>% arrange(desc(sum_click))
 
- ## only one record ## 
+ # only one record with over 1000 clicks; probably logging issue
 
  ## count the number of > 1000 records ##
  nrow(filter(StudentVle, sum_click > 1000))
 
- ## only 23, tiny in comparison 10 Million
+ # only 23, tiny in comparison 10 Million
 
- ### distribuiton of sum clicks
-
+ #  distribuiton of sum clicks
+bardata<- StudentVle %>% select(id_student, sum_click) 
 barplot(bardata$sum_click, xlab= "students", ylab= "sum_clicks", main="distribution of sum_clicks by students")
 
-## there are a bunch of outliers, maybe it is a logging issue or maybe it is actual , we dont know 
+# there are a bunch of outliers, maybe it is a logging issue or maybe it is actual
 
 
 ############### Vle #####################
 
-
-# replacing bad vaules with NA
+summary(Vle)
+head(Vle)
+unique(Vle$week_from)
+unique(Vle$week_to)
+# replacing bad values with NA
 
 Vle$week_from[ Vle$week_from == "?" ] <- NA
 Vle$week_to[ Vle$week_to == "?" ] <- NA
@@ -228,113 +220,107 @@ sum(is.na(Vle[,6]))
 ########################################################################################################################################################
 
 
-## sumclick distribution by students
+# sumclick distribution by students
 
 summary(StudentVle$sum_click)
 nrow(filter(StudentVle,sum_click > 4))
-## roughly 20%  of totatls
+# roughly 20%  of total records, so significant records
 
 StudentVle%>%group_by(code_presentation) %>% summarise(total=mean(sum_click))
 
-
-## split it by year
+# split it by year
 ## add a year column
 StudentVle <- StudentVle %>% mutate(year=substr(as.character(StudentVle$code_presentation),1,4))
 
 StudentVle%>%group_by(year) %>% summarise(total=sum(sum_click))
-## nothing significant
+# total clicks went up
 
-# creating chart data to see the distribution of clicks
-
-bardata<- StudentVle %>% select(id_student, sum_click) 
-bardata2<- StudentVle %>% select(id_student, sum_click) %>% filter(sum_click < 1000)
-
-## plot bar chat of distribution
-barplot(bardata$sum_click ,xlab= "students", ylab= "sum_clicks", main="distribution of sum_clicks by students")
-
-## bar plot with 500 cutoff
+# creating chart data to see the distribution of clicks for outliers
+# bar plot with 500 cutoff
 barplot(bardata2$sum_click,ylim=c(0,500) ,xlab= "students", ylab= "sum_clicks", main="distribution of sum_clicks by students")
 
-## seems like 1000 be a good cut off point and rest is probably noise / logging issues
+# seems like 1000 be a good cut off point and rest is probably noise / logging issues
 
-## example
+# example: 
 StudentVle %>%filter(id_student==633902) %>% arrange(desc(sum_click))
-## random data point looks like noise
 
+# subset the dataset, removing 23 records
 StudentVle<- subset(filter(StudentVle, sum_click < 1000))
 
+# merge with Vle to get "activity_type" field
+StudentVle<- merge(StudentVle, Vle[,c("id_site","activity_type")],by = "id_site")
 
-
-
-
-## merge with Vle to get "activity_type" field
-
-#StudentVle<- merge(StudentVle, Vle[,c("id_site","activity_type")],by = "id_site")
-
-
-## transform the activity table by summarizing,  mean sum click per student , # of material accessed , # of times acess 
+# transform the activity table by summarizing,  mean sum click per student , num. of material accessed , num. of times acess 
 
 Studentclicks<- StudentVle %>% group_by(id_student,code_module,code_presentation) %>% summarise(average_clicks = mean(sum_click),unique_material_access= length(unique(id_site)), no_of_access= length(unique(date)))
 
 Studentclicks <- as.data.frame(Studentclicks)
 
-## activity has high number of rows due to activity type 
- # plot by activity type 
+summary(Studentclicks)
 
- barplot(activitytypeplot$avg_clicks, names.arg=activitytypeplot$activity_type,col="red",las=2)
+filter(Studentclicks,id_student==8462)
+#some outlier in data
 
- ## Some clicks in Quiz and wiki , which makes sense, we will come back here later
+#renaming
+ Studentclicks_agg <- Studentclicks
+ 
+ 
+# 29,228 row ; 26,074 unique student ids , one student took more than one module: head(Studentclicks_agg[duplicated(Studentclicks_agg$id_student),])
 
- ## aggreegate activity at a student level
- Studentclicks_agg <- Studentclicks%>% group_by(id_student,code_module,code_presentation)%>%summarise(average_clicks_agg = mean(average_clicks), total_material_accessed = sum(unique_material_access),total_times_accessed = sum(no_of_access))
-
- Studentclicks_agg <- as.data.frame(Studentclicks_agg)
-# 29,228 row ; 26,074 unique student ids , one student took more than one module: Studentclicks_agg[duplicated(Studentclicks_agg$id_student),]
-
-
-## QC
-
+# QC
 filter(StudentVle, id_student== 8462 & code_presentation=="2014J")
 filter( Studentclicks_agg, id_student== 8462 & code_presentation=="2014J")
 
+filter(StudentVle, id_student==27891 & code_presentation=="2014B")
+filter(Studentclicks_agg, id_student==27891)
 
-####### create final data set  
 
-## 1. join assessment with student assessment
+####### create final data set  : See schema diagram for reference ##############
 
+
+# 1. join Assessments with Student assessment
 StudentAssessment <- merge(StudentAssessment, Assesments , by = "id_assessment")
-         
- # renaming the date col
-colnames(StudentAssessment)[7] <- "final_assessment_submission_date"
+names(Assesments)
+# renaming the date col
+rename(StudentAssessment,date= final_assessment_submission_date)
 
-# aggregating non-exame type assessment by student per module
+# aggregating non-exam type assessment by student per module; Exam scores not good predictors since its too late to prevent failure
 
-Assesments_non_exam <- Assesments%>%filter(assessment_type!="Exam")
-StudentAssessment <- merge(StudentAssessment, Assesments_non_exam , by = "id_assessment")
-StudentAssessment_agg<-StudentAssessment%>%group_by(id_student,code_module,code_presentation)%>% summarise(num_of_assessment_submitted= length(unique(id_assessment)),avg_time_submit= mean(date-date_submitted),avg_score_per_module = mean(score))
+StudentAssessment <- subset(filter(StudentAssessment,assessment_type=="Exam"))
 
 
-## 2.  Join student info with student registration to registration/ unregistration dates
+StudentAssessment_agg<-StudentAssessment%>%group_by(id_student,code_module,code_presentation)%>% summarise(num_of_assessment_submitted= length(unique(id_assessment)),avg_time_submit= mean(final_assessment_submission_date-date_submitted),avg_score_per_module = mean(score))
+
+# 2.  Join Student info with Student Registration to get registration/ unregistration dates
 
 StudentInfo <- merge(StudentInfo, StudentRegistration, by = c("code_module","code_presentation","id_student"))
 
 
-## 3. join courses to get course length to the student info to get length
+# 3. join Courses to get course length to the Student info to get length
 
 StudentInfo <- merge(StudentInfo,Courses, by =c("code_module","code_presentation"))
 
 
-## 4. Join Student clicks to Student info to get activity on VLE
+# 4. Join Student clicks to Student info to get activity on VLE
 
 
-# add the aggregated activity back to studentinfo
+# 5. Join Student click aggregated activity to studentinfo; left join since all student may not have an activity
 
 StudentInfo <- merge(StudentInfo, Studentclicks_agg, by = c("code_module","code_presentation","id_student"), all.x= TRUE)
 
-## final data set for exploration  is done -- 32,593 rows
- # join studentinfo with StudentAssessment_agg, left join since student may not submitted assessment
+
+# join Student info with StudentAssessment_agg, left join since student may not submitted assessment
 StudentInfo <- merge(StudentInfo, StudentAssessment_agg, by = c("code_module","code_presentation","id_student"), all.x= TRUE)
 
+summary(StudentInfo)
+# student credit seems to have outlier
+# final data set for exploration  is done -- 32,548 rows
+
+# changing NA to 0 for missing assessment
+StudentInfo$num_of_assessment_submitted[is.na(StudentInfo$num_of_assessment_submitted)] <- 0
+
+# changing NA to 0 for no VLE iteractions
+StudentInfo$unique_material_access[is.na(StudentInfo$unique_material_access)]<- 0
 
 
 ##################################################################################################################################################
@@ -352,11 +338,6 @@ StudentInfo$has_passed<-ifelse(StudentInfo$final_result =="Pass",1,ifelse(Studen
 ### add a column of year to split data
 StudentInfo <- StudentInfo %>% mutate(year=substr(as.character(StudentInfo$code_presentation),1,4))
 
-## Split data by year for exploration and validation
-
-ggplot(year_agg,aes(x=year,y=passrate)) +geom_boxplot()+ scale_y_continuous(labels=scales::percent)
-
-
 
 ### Student Demographics 
 
@@ -364,18 +345,6 @@ Chart_data <- StudentInfo %>% group_by(gender,region,highest_education,age_band,
   summarise(passrate = mean(has_passed), total_student= length(unique(id_student)))
 
   write.table(Chart_data,"chart_data.txt",sep=",")
-
-## paas rate by education levels
-
- #  higherEdu_tot <- student_distribution_data %>% group_by(highest_education) %>% summarise(tot_students= sum(tot_students))
- #  pass_rate_education 
- #  <-multiple_barplot_data %>% group_by(highest_education)%>%summarise(avg_pass_rate= mean(passrate))
-  
- # df <- data.frame( higherEdu_tot[,1],  higherEdu_tot[,2], pass_rate_education[,2])
-
- # q <-ggplot(df) + geom_bar(aes(x=highest_education, y=tot_students),stat="identity", fill="tan1", colour="sienna3") + geom_line(aes(x=highest_education, y=avg_pass_rate*max(df$tot_students),group =1),stat="identity")+ geom_text(aes(label=tot_students, x=highest_education, y=0.90*tot_students), colour="black")+ scale_y_continuous(sec.axis = sec_axis(~./max(df$tot_students),name="passrate"))
-
- # q <- q+ ggtitle("PassRate and Highest Education") 
 
 
 ### Student Behavior  
@@ -404,17 +373,22 @@ boxplot(avg_score_per_module ~ has_passed, data=StudentInfo, xlab= "has_passed",
 
 ###  VLE iteractions
 
+colnames(StudentInfo)[17] = "total_material_accessed"
+
+colnames(StudentInfo)[18]="total_times_accessed"
+
+colnames(StudentInfo)[16]="average_clicks_agg"
+
 Chart_data4 <- as.data.frame(StudentInfo %>%
-                               group_by(has_passed,total_material_accessed,total_times_accessed,average_clicks_agg)%>% 
+                            group_by(has_passed,total_material_accessed,total_times_accessed,average_clicks_agg)%>% 
                                summarise(total_student= length(unique(id_student)))
 )
+
 
 write.table(Chart_data4,"chart_data4.txt",sep=",")
 
 boxplot(average_clicks_agg ~ has_passed, data=StudentInfo, xlab= "has_passed",ylab="average_clicks_agg", col=c("coral2","aquamarine3"))
 
-
-Chart_data4$has_passed <- as.factor(Chart_data4$has_passed)
 
 with(Chart_data4,plot(average_clicks_agg,total_student,col=has_passed))
 
@@ -424,18 +398,11 @@ with(Chart_data4,plot(average_clicks_agg,total_student,col=has_passed))
 
 # By module type
 chart_data5 <- StudentInfo%>% group_by(code_module)%>% summarise(avg_pass_rate= mean(has_passed))
-chart_data5  <- as.data.frame(char_data5 )
+
+chart_data5  <- as.data.frame(chart_data5 )
 
 ggplot(chart_data5,aes(x=code_module,y=avg_pass_rate,fill=code_module)) +geom_bar(stat="identity")+scale_y_continuous(labels=scales::percent)
 
-
-# Assessment type
-#t <- merge(StudentAssessment_agg,Assesments_non_exam)
-#t2<- merge(t,StudentInfo, by=c("code_module","code_presentation","id_student"))
-
-chart_data6 <- t2 %>% group_by(assessment_type)%>% summarise(avg_pass_rate= mean(has_passed))
-
-ggplot(chart_data6,aes(x=assessment_type,y=avg_pass_rate,fill=assessment_type)) +geom_bar(stat="identity")+scale_y_continuous(labels=scales::percent)
 
 # Module Material
 
@@ -452,22 +419,26 @@ ggplot(Vledata2,aes(x=code_module,y=tot_material))+geom_bar(stat="identity")
 
 # remove student id, final results and date unregistration from the data to create a train set
 
-StudentInfo2 <- StudentInfo[,-c(3,15,17)]
+StudentInfo2 <- StudentInfo %>% select(-final_result,-date_unregistration,-id_student)
  
 
-## split data 70:30 for train and validation
+# split data 70:30 for train and validation
   
-  set.seed(42)
+set.seed(42)
 
 indexes <- sample(1:nrow(StudentInfo2), size=0.2*nrow(StudentInfo2))
 
 test.data<- StudentInfo2[indexes,]
+
 train.data <- StudentInfo2[-indexes,]
 
-tree <- rpart(has_passed~.,train.data,control=rpart.control(minbucketsize=30, maxdepth= 3 ,cp=.00001),method = "class")
+# change label to factor
+train.data$has_passed <- as.factor(train.data$has_passed)
 
 # we dont care about prediction here we just want to know the the important factors that decides the pass rate, depth of 3 is easily readiable
 # bucket size 30 is for stat sig purposes
+
+tree <- rpart(has_passed~.,train.data,control=rpart.control(minbucketsize=30, maxdepth= 3 ,cp=.00001),method = "class")
 
 tree
 
@@ -477,8 +448,10 @@ rpart.plot(tree,type = 3, clip.right.lab=FALSE, branch = .5, under = TRUE)
 
 ## taking out these top two variables and running the tree again
 
-train.data2 <- train.data[,-c(16,18)]
-#class(train.data2$has_passed)
+train.data2 <- train.data %>% select (-num_of_assessment_submitted,-avg_score_per_module)
+
+train.data2$has_passed <- train.data$has_passed
+
 tree2 <- rpart(has_passed~.,train.data2,control=rpart.control(minbucketsize=30, maxdepth= 3 ,cp=.00001),method = "class")
 
 tree2
@@ -486,11 +459,9 @@ tree2
 rpart.plot(tree2,type = 3, clip.right.lab=FALSE, branch = .5, under = TRUE)
 
 
-
-
 #validate 
-names(test.data)
-test.data1<- test.data[,-20]
+test.data1<- subset(test.data, select=-c(has_passed))
+
 predictions <- predict(tree,test.data1)
 
 prediction <- as.numeric(predictions > 0.5)
