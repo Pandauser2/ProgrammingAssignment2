@@ -23,7 +23,7 @@ install.packages('ggplot2', dep = TRUE)
 library(lattice)
 library(rpart.plot)
 
-
+setwd("/Users/Jarinsea/Downloads/OULAD")
 ##############################################################################################################################################################
 # Loading the files
 ##########################################################################################################################################################
@@ -51,7 +51,7 @@ StudentAssessment<-read.csv("studentAssessment.csv", stringsAsFactors = FALSE)
 str(StudentAssessment)
 StudentAssessment$is_banked <- as.factor(StudentAssessment$is_banked)
 StudentAssessment$score <- as.integer(StudentAssessment$score) 
-  # some student have no scores
+# some student have no scores
 StudentAssessment$id_assessment <-as.character(StudentAssessment$id_assessment)
 StudentAssessment$id_student <- as.character(StudentAssessment$id_student)
 
@@ -71,14 +71,16 @@ for(i in cols){
 #### student reg #####
 
 StudentRegistration <-read.csv("studentRegistration.csv", stringsAsFactors =FALSE)
+
 str(StudentRegistration)
+
 cols2<-c(4,5)
 
 for(i in cols2){
   StudentRegistration[, i] = as.integer(StudentRegistration[, i])
 }
- # missing registration dates
- 
+# missing registration dates
+
 StudentRegistration$code_module <- as.factor(StudentRegistration$code_module)
 StudentRegistration$code_presentation<-as.factor(StudentRegistration$code_presentation)
 
@@ -116,10 +118,10 @@ for(i in cols4){
 
 ################  Student Assesment ###########################
 
-summary(StudentAssessment)
-## score has a bunch of NAs
-summary(StudentAssessment$score)
 
+## score has a bunch of NAs
+
+summary(StudentAssessment$score)
 ## seems like student submitted but no scores
 ## we should get rid of them since if no assessment is made then it is not possible to understand their effect on pass/fail
 ## keeping the complete cases only
@@ -151,6 +153,7 @@ StudentInfo$imd_band <- as.factor(StudentInfo$imd_band)
 
 # check for duplicates
 nrow(StudentInfo)
+# 32,593 records
 select(StudentInfo,id_student) %>% unique  %>% nrow
 
 # seems to have duplicates 28,785 vs 32,593 records
@@ -169,26 +172,14 @@ head(filter(StudentRegistration, is.na(date_registration)))
 
 StudentRegistration <- StudentRegistration[complete.cases(StudentRegistration$date_registration),]
 
-
+# 22,521 registered student
 ############# Student Vle ##############
 
 summary(StudentVle)
 
 # max sum of 6,977 click , looks like an outlier
 
-# check what is going on 
-filter(StudentVle, sum_click > 1000)
-
-StudentVle %>%filter(id_student==633902) %>% arrange(desc(sum_click))
-
- # only one record with over 1000 clicks; probably logging issue
-
- ## count the number of > 1000 records ##
- nrow(filter(StudentVle, sum_click > 1000))
-
- # only 23, tiny in comparison 10 Million
-
- #  distribuiton of sum clicks
+#  distribuiton of sum clicks
 bardata<- StudentVle %>% select(id_student, sum_click) 
 barplot(bardata$sum_click, xlab= "students", ylab= "sum_clicks", main="distribution of sum_clicks by students")
 
@@ -225,8 +216,8 @@ sum(is.na(Vle[,6]))
 summary(StudentVle$sum_click)
 nrow(filter(StudentVle,sum_click > 4))
 # roughly 20%  of total records, so significant records
-
-StudentVle%>%group_by(code_presentation) %>% summarise(total=mean(sum_click))
+head
+plot(StudentVle%>%group_by(code_presentation) %>% summarise(total=mean(sum_click)),ylab="avg_sum_clicks",main="Avg_sum_clicks by Year")
 
 # split it by year
 ## add a year column
@@ -247,24 +238,17 @@ StudentVle %>%filter(id_student==633902) %>% arrange(desc(sum_click))
 # subset the dataset, removing 23 records
 StudentVle<- subset(filter(StudentVle, sum_click < 1000))
 
-# merge with Vle to get "activity_type" field
-StudentVle<- merge(StudentVle, Vle[,c("id_site","activity_type")],by = "id_site")
-
 # transform the activity table by summarizing,  mean sum click per student , num. of material accessed , num. of times acess 
 
-Studentclicks<- StudentVle %>% group_by(id_student,code_module,code_presentation) %>% summarise(average_clicks = mean(sum_click),unique_material_access= length(unique(id_site)), no_of_access= length(unique(date)))
+Studentclicks_agg<- StudentVle %>% group_by(id_student,code_module,code_presentation) %>% summarise(average_clicks = mean(sum_click),unique_material_access= length(unique(id_site)), no_of_access= length(unique(date)))
 
-Studentclicks <- as.data.frame(Studentclicks)
+Studentclicks_agg<- as.data.frame(Studentclicks_agg)
 
-summary(Studentclicks)
+summary(Studentclicks_agg)
 
 filter(Studentclicks,id_student==8462)
-#some outlier in data
 
-#renaming
- Studentclicks_agg <- Studentclicks
- 
- 
+#some outlier in data
 # 29,228 row ; 26,074 unique student ids , one student took more than one module: head(Studentclicks_agg[duplicated(Studentclicks_agg$id_student),])
 
 # QC
@@ -280,39 +264,40 @@ filter(Studentclicks_agg, id_student==27891)
 
 # 1. join Assessments with Student assessment
 StudentAssessment <- merge(StudentAssessment, Assesments , by = "id_assessment")
-names(Assesments)
+names( StudentAssessment)
+
 # renaming the date col
-rename(StudentAssessment,date= final_assessment_submission_date)
+colnames(StudentAssessment)[9]<-"final_assessment_submission_date"
 
 # aggregating non-exam type assessment by student per module; Exam scores not good predictors since its too late to prevent failure
 
-StudentAssessment <- subset(filter(StudentAssessment,assessment_type=="Exam"))
+StudentAssessment <- subset(filter(StudentAssessment,assessment_type !="Exam"))
 
 
 StudentAssessment_agg<-StudentAssessment%>%group_by(id_student,code_module,code_presentation)%>% summarise(num_of_assessment_submitted= length(unique(id_assessment)),avg_time_submit= mean(final_assessment_submission_date-date_submitted),avg_score_per_module = mean(score))
+
+summary(StudentAssessment_agg)
 
 # 2.  Join Student info with Student Registration to get registration/ unregistration dates
 
 StudentInfo <- merge(StudentInfo, StudentRegistration, by = c("code_module","code_presentation","id_student"))
 
 
-# 3. join Courses to get course length to the Student info to get length
+# 3. join Courses to get course length to the Student info to get length of module
 
 StudentInfo <- merge(StudentInfo,Courses, by =c("code_module","code_presentation"))
 
 
-# 4. Join Student clicks to Student info to get activity on VLE
-
-
-# 5. Join Student click aggregated activity to studentinfo; left join since all student may not have an activity
+# 4. Join Student click aggregated activity to studentinfo; left join since all student may not have an activity
 
 StudentInfo <- merge(StudentInfo, Studentclicks_agg, by = c("code_module","code_presentation","id_student"), all.x= TRUE)
 
 
-# join Student info with StudentAssessment_agg, left join since student may not submitted assessment
+# 5. join Student info with StudentAssessment_agg, left join since student may not submitted assessment
 StudentInfo <- merge(StudentInfo, StudentAssessment_agg, by = c("code_module","code_presentation","id_student"), all.x= TRUE)
 
 summary(StudentInfo)
+nrow(StudentInfo)
 # student credit seems to have outlier
 # final data set for exploration  is done -- 32,548 rows
 
@@ -341,17 +326,17 @@ StudentInfo <- StudentInfo %>% mutate(year=substr(as.character(StudentInfo$code_
 
 ### Student Demographics 
 
-Chart_data <- StudentInfo %>% group_by(gender,region,highest_education,age_band,studied_credits,disability)%>% 
+Chart_data <- StudentInfo %>% group_by(year,gender,region,highest_education,age_band,studied_credits,disability)%>% 
   summarise(passrate = mean(has_passed), total_student= length(unique(id_student)))
 
-  write.table(Chart_data,"chart_data.txt",sep=",")
+write.table(Chart_data,"chart_data.txt",sep=",")
 
 
 ### Student Behavior  
 
 Chart_data2 <- as.data.frame(StudentInfo %>% 
-                               group_by(date_registration,module_presentation_length,num_of_assessment_submitted)%>% 
-  summarise(passrate = mean(has_passed), total_student= length(unique(id_student)))
+                               group_by(year,date_registration,module_presentation_length,num_of_assessment_submitted)%>% 
+                               summarise(passrate = mean(has_passed), total_student= length(unique(id_student)))
 )
 
 
@@ -373,35 +358,31 @@ boxplot(avg_score_per_module ~ has_passed, data=StudentInfo, xlab= "has_passed",
 
 ###  VLE iteractions
 
-colnames(StudentInfo)[17] = "total_material_accessed"
-
-colnames(StudentInfo)[18]="total_times_accessed"
-
-colnames(StudentInfo)[16]="average_clicks_agg"
-
-Chart_data4 <- as.data.frame(StudentInfo %>%
-                            group_by(has_passed,total_material_accessed,total_times_accessed,average_clicks_agg)%>% 
+Chart_data4 <- as.data.frame(StudentInfo %>%group_by(has_passed,unique_material_access,no_of_access,average_clicks,year)%>% 
                                summarise(total_student= length(unique(id_student)))
 )
 
 
 write.table(Chart_data4,"chart_data4.txt",sep=",")
 
-boxplot(average_clicks_agg ~ has_passed, data=StudentInfo, xlab= "has_passed",ylab="average_clicks_agg", col=c("coral2","aquamarine3"))
+boxplot(average_clicks ~ has_passed, data=StudentInfo, xlab= "has_passed",ylab="average_clicks_agg", col=c("coral2","aquamarine3"))
 
-
-with(Chart_data4,plot(average_clicks_agg,total_student,col=has_passed))
+plot(StudentInfo%>% group_by(code_presentation)%>%summarise(avg_material_accessed=mean(unique_material_access)))
 
 
 #### chart for module designs 
 
 
 # By module type
-chart_data5 <- StudentInfo%>% group_by(code_module)%>% summarise(avg_pass_rate= mean(has_passed))
+chart_data5 <- StudentInfo%>% group_by(code_module,year)%>% summarise(avg_pass_rate= mean(has_passed))
 
 chart_data5  <- as.data.frame(chart_data5 )
+y1<- filter(chart_data5,year=="2013")
+y2<- filter(chart_data5,year=="2014")
 
-ggplot(chart_data5,aes(x=code_module,y=avg_pass_rate,fill=code_module)) +geom_bar(stat="identity")+scale_y_continuous(labels=scales::percent)
+ggplot(y1,aes(x=code_module,y=avg_pass_rate,fill=code_module)) +geom_bar(stat="identity")+scale_y_continuous(labels=scales::percent)+ggtitle("2013")
+
+ggplot(y2,aes(x=code_module,y=avg_pass_rate,fill=code_module)) +geom_bar(stat="identity")+scale_y_continuous(labels=scales::percent)+ggtitle("2014")
 
 
 # Module Material
@@ -413,6 +394,14 @@ Vledata2<- as.data.frame(Vledata2)
 ggplot(Vledata2,aes(x=code_module,y=tot_material))+geom_bar(stat="identity")
 
 
+# Year
+
+year<-as.data.frame(StudentInfo%>%group_by(year)%>%summarise(avg_pass_rate = mean(has_passed)))
+
+head(year)
+ggplot(year,aes(x=year,y=avg_pass_rate,fill=year))+geom_bar(stat="identity")+scale_y_continuous(labels=scales::percent)+ggtitle("PassRate by Year")
+
+
 ####################################################################################################################################################3##33
 # Decison Tree
 #########################################################################################################################################################
@@ -420,10 +409,10 @@ ggplot(Vledata2,aes(x=code_module,y=tot_material))+geom_bar(stat="identity")
 # remove student id, final results and date unregistration from the data to create a train set
 
 StudentInfo2 <- StudentInfo %>% select(-final_result,-date_unregistration,-id_student)
- 
+
 
 # split data 70:30 for train and validation
-  
+
 set.seed(42)
 
 indexes <- sample(1:nrow(StudentInfo2), size=0.2*nrow(StudentInfo2))
@@ -468,5 +457,8 @@ prediction <- as.numeric(predictions > 0.5)
 head(test.data$has_passed)
 
 confusionMatrix(prediction,test.data$has_passed)
+
+`````````````````````````````````````````````````````````````````````````````````````````````
+
 
 `````````````````````````````````````````````````````````````````````````````````````````````
